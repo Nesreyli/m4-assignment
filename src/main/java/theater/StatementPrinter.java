@@ -27,52 +27,58 @@ public class StatementPrinter {
         final StringBuilder result =
                 new StringBuilder("Statement for " + invoice.getCustomer() + System.lineSeparator());
 
-        final NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(Locale.US);
+        final NumberFormat frmt = NumberFormat.getCurrencyInstance(Locale.US);
 
-        for (Performance p : invoice.getPerformances()) {
-            final Play play = plays.get(p.getPlayID());
-            final int audience = p.getAudience();
-            int thisAmount = 0;
-
-            switch (play.getType()) {
-                case "tragedy":
-                    thisAmount = Constants.TRAGEDY_BASE_AMOUNT;
-                    if (audience > Constants.TRAGEDY_AUDIENCE_THRESHOLD) {
-                        thisAmount += Constants.TRAGEDY_OVER_BASE_CAPACITY_PER_PERSON
-                                * (audience - Constants.TRAGEDY_AUDIENCE_THRESHOLD);
-                    }
-                    break;
-                case "comedy":
-                    thisAmount = Constants.COMEDY_BASE_AMOUNT;
-                    if (audience > Constants.COMEDY_AUDIENCE_THRESHOLD) {
-                        thisAmount += Constants.COMEDY_OVER_BASE_CAPACITY_AMOUNT
-                                + (Constants.COMEDY_OVER_BASE_CAPACITY_PER_PERSON
-                                * (audience - Constants.COMEDY_AUDIENCE_THRESHOLD));
-                    }
-                    thisAmount += Constants.COMEDY_AMOUNT_PER_AUDIENCE * audience;
-                    break;
-                default:
-                    throw new RuntimeException(String.format("unknown type: %s", play.getType()));
-            }
+        for (Performance perform : invoice.getPerformances()) {
 
             // add volume credits
-            volumeCredits += Math.max(audience - Constants.BASE_VOLUME_CREDIT_THRESHOLD, 0);
+            volumeCredits += Math.max(perform.getAudience() - Constants.BASE_VOLUME_CREDIT_THRESHOLD, 0);
             // add extra credit for every five comedy attendees
-            if ("comedy".equals(play.getType())) {
-                volumeCredits += audience / Constants.COMEDY_EXTRA_VOLUME_FACTOR;
+            if ("comedy".equals(getPlay(perform).getType())) {
+                volumeCredits += perform.getAudience() / Constants.COMEDY_EXTRA_VOLUME_FACTOR;
             }
 
             // print line for this order
             result.append(String.format(
                     "  %s: %s (%s seats)%n",
-                    play.getName(),
-                    currencyFormatter.format(thisAmount / Constants.PERCENT_FACTOR),
-                    audience));
-            totalAmount += thisAmount;
+                    getPlay(perform).getName(),
+                    frmt.format(getAmount(perform) / Constants.PERCENT_FACTOR),
+                    perform.getAudience()));
+            totalAmount += getAmount(perform);
         }
         result.append(String.format("Amount owed is %s%n",
-                currencyFormatter.format(totalAmount / Constants.PERCENT_FACTOR)));
+                frmt.format(totalAmount / Constants.PERCENT_FACTOR)));
         result.append(String.format("You earned %s credits%n", volumeCredits));
         return result.toString();
+    }
+
+    private Play getPlay(Performance perform) {
+        return plays.get(perform.getPlayID());
+    }
+
+    private int getAmount(Performance perform) {
+        int thisAmount = 0;
+
+        switch (getPlay(perform).getType()) {
+            case "tragedy":
+                thisAmount = Constants.TRAGEDY_BASE_AMOUNT;
+                if (perform.getAudience() > Constants.TRAGEDY_AUDIENCE_THRESHOLD) {
+                    thisAmount += Constants.TRAGEDY_OVER_BASE_CAPACITY_PER_PERSON
+                            * (perform.getAudience() - Constants.TRAGEDY_AUDIENCE_THRESHOLD);
+                }
+                break;
+            case "comedy":
+                thisAmount = Constants.COMEDY_BASE_AMOUNT;
+                if (perform.getAudience() > Constants.COMEDY_AUDIENCE_THRESHOLD) {
+                    thisAmount += Constants.COMEDY_OVER_BASE_CAPACITY_AMOUNT
+                            + (Constants.COMEDY_OVER_BASE_CAPACITY_PER_PERSON
+                            * (perform.getAudience() - Constants.COMEDY_AUDIENCE_THRESHOLD));
+                }
+                thisAmount += Constants.COMEDY_AMOUNT_PER_AUDIENCE * perform.getAudience();
+                break;
+            default:
+                throw new RuntimeException(String.format("unknown type: %s", getPlay(perform).getType()));
+        }
+        return thisAmount;
     }
 }
